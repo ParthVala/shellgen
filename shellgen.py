@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 """
 shellgen.py
 
@@ -10,32 +9,46 @@ import argparse
 import subprocess
 import sys
 
-# Few‑shot prompt template with Python str.format()
 PROMPT_TMPL = """\
-    You are an AI expert shell script assistant.
-    Generate *only* the {shell} command(s) (no explanations, no comments) to accomplish the user’s request.
+You are an AI expert shell script assistant.  Follow these conversion templates:
 
-    ### Examples
-    # List all files modified in the last 24 hours
-    find . -type f -mtime -1
+1. Top‑N largest files → 
+   find <path> -type f -exec du -h {{}} + 2>/dev/null \
+     | sort -hr \
+     | head -n <N>
 
-    # Show disk usage in human‑readable form
-    du -sh /*
+2. Recursive grep with ignore → 
+   find <path> -path "./<ignore_dir>" -prune -o \
+        -type f -name "<pattern>" -exec grep "<pattern>" {{}} +
 
-    # Create a directory if it does not exist
-    [ -d /opt/mydir ] || mkdir -p /opt/mydir
+3. Line counts per file → 
+   find <path> -type f -name "<ext>" -exec wc -l {{}} \\;
 
-    ### User request:
-    {request}
+4. Archive recent logs → 
+   find <path> -type f -name "<pattern>" -mtime -<days> -print0 \
+     | tar --null -czvf <archive> --files-from=-
+     
+5. Combined size & time filters →
+   find <path> -type f -name "<pattern>" -size +<N>M -mtime -<D> -print0 \
+     | tar --null -czvf <archive> --files-from=-
+
+### Examples
+
+# Top‑5 in /home/user:
+find /home/user -type f -exec du -h {{}} + 2>/dev/null | sort -hr | head -n 5
+
+# Search TODO in .py except venv:
+find . -path "./venv" -prune -o -type f -name "*.py" -exec grep "TODO" {{}} +
+
+### User request:
+{request}
 """
 
 def make_prompt(request: str, shell: str = "bash") -> str:
-    # Fill in the placeholders
     return PROMPT_TMPL.format(shell=shell, request=request)
 
 def generate_script(prompt: str, model: str) -> str:
     try:
-        # Pass the prompt as a positional argument instead of --prompt
         proc = subprocess.run(
             ["ollama", "run", model, prompt],
             text=True, capture_output=True, check=True
@@ -66,13 +79,10 @@ def main():
     )
     args = parser.parse_args()
 
-    # Rebuild the request string from CLI words
     user_req = " ".join(args.request)
-    # Build the prompt and call Ollama
     prompt = make_prompt(user_req, args.shell)
     snippet = generate_script(prompt, args.model)
 
-    # Print out the raw commands
     print(f"\n🔧 Generated {args.shell} snippet:\n")
     print(snippet)
 

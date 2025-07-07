@@ -27,6 +27,7 @@ Bash example:
 Output:
 find /var/log -type f -size +100M
 
+‼️ Powershell is not accurate as of now, go with the bash, I will update here once it's good to go ‼️
 
 PowerShell example:
 ./shellgen.py --shell powershell "list all running processes sorted by CPU usage"
